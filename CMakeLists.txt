@@ -33,8 +33,12 @@ set_property(CACHE INERTIALPOSELIB_PRECISION PROPERTY STRINGS 1 2 3 4 5)
 set(LIBNAME InertialPose)
 # Sets the library name.
 
+# Find Eigen3
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
+
 include_directories(
   ./include/
+  ${EIGEN3_INCLUDE_DIR}
 )
 # Specifies the directories to be included during the compilation process.
 
