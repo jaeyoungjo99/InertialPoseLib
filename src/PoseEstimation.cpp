@@ -1,10 +1,11 @@
 #include "InertialPoseLib/PoseEstimation.hpp"
 
 namespace InertialPoseLib {
-    void PoseEstimation::Reset(double imu_bias_std_gyro, double imu_bias_std_acc){
+    void PoseEstimation::Reset(double imu_bias_std_gyro, double imu_bias_std_acc, bool estimate_gravity){
         
         imu_bias_std_gyro_ = imu_bias_std_gyro;
         imu_bias_std_acc_ = imu_bias_std_acc;
+        estimate_gravity_ = estimate_gravity;
 
         // State initialization using configuration
         S_.pos.setZero();
@@ -18,6 +19,10 @@ namespace InertialPoseLib {
 
         // Covariance initialization using configuration
         P_ = Eigen::MatrixXd::Identity(STATE_ORDER, STATE_ORDER) * INIT_STATE_COV;
+
+        P_(S_ROLL_RATE, S_ROLL_RATE) = imu_std_gyro_;
+        P_(S_PITCH_RATE, S_PITCH_RATE) = imu_std_gyro_;
+        P_(S_YAW_RATE, S_YAW_RATE) = imu_std_gyro_;
 
         P_(S_B_ROLL_RATE, S_B_ROLL_RATE) = imu_bias_std_gyro_;
         P_(S_B_PITCH_RATE, S_B_PITCH_RATE) = imu_bias_std_gyro_;
@@ -152,6 +157,9 @@ namespace InertialPoseLib {
 
         prev_timestamp_ = cur_timestamp;
 
+        std::cout<<"P_ROLL "<<P_(S_ROLL,S_ROLL) <<" P_ROLL_RATE "<<P_(S_ROLL_RATE,S_ROLL_RATE) 
+         <<" P_B_ROLL_RATE "<<P_(S_B_ROLL_RATE,S_B_ROLL_RATE)<<std::endl;
+
         // TODO:
         // if (cfg_.b_use_zupt) ZuptImu(imu_input);
         // if (cfg_.i_gps_type == GpsType::BESTPOS || cfg_.b_use_complementary_filter) ComplementaryKalmanFilter(imu_input);
@@ -161,7 +169,7 @@ namespace InertialPoseLib {
         return;
     }
 
-    void PoseEstimation::UpdateWithGnss(const GnssStruct& gnss_input){
+    void PoseEstimation::UpdateWithGnss(const GnssStruct& gnss_input, bool is_3dof){
         std::lock_guard<std::mutex> lock(mutex_state_);
 
         // CheckYawInitialized();
@@ -204,23 +212,19 @@ namespace InertialPoseLib {
         Y.head<3>() = Z.head<3>() - Z_state.head<3>(); // Position residual
         Y.tail<3>() = res_angle_euler;                 // Rotation residual as angle-axis vector
 
-        // if (gnss_input.gnss_source == GnssSource::NAVSATFIX || gnss_input.gnss_source == GnssSource::BESTPOS) {
-        //     // Due to the nature of BESTPOS, NAVSATFIX providing pose based on antenna, calibration error occurs if yaw is not captured
-        //     if (IsYawInitialized() == false) {
-        //         R(0, 0) += 3.0; // TODO: Reflect actual Vehicle to Antenna error
-        //         R(1, 1) += 3.0; // TODO: Reflect actual Vehicle to Antenna error
-        //     }
 
-        //     Eigen::Matrix<double, 3, STATE_ORDER> H3 = H.block<3, STATE_ORDER>(0, 0);
-        //     Eigen::Matrix<double, 3, 3> S3 = H3 * P_ * H3.transpose() + R.block<3, 3>(0, 0);
-        //     Eigen::Matrix<double, STATE_ORDER, 3> K3 = P_ * H3.transpose() * S3.inverse();
-        //     Eigen::Matrix<double, 3, 1> Y3 = Y.head<3>();
+        if (is_3dof == true) {
+            Eigen::Matrix<double, 3, STATE_ORDER> H3 = H.block<3, STATE_ORDER>(0, 0);
+            Eigen::Matrix<double, 3, 3> S3 = H3 * P_ * H3.transpose() + R.block<3, 3>(0, 0);
+            Eigen::Matrix<double, STATE_ORDER, 3> K3 = P_ * H3.transpose() * S3.inverse();
+            Eigen::Matrix<double, 3, 1> Y3 = Y.head<3>();
 
-        //     UpdateEkfState(K3, Y3, P_, H3, S_);
-        // }
-        // else {
+            UpdateEkfState(K3, Y3, P_, H3, S_);
+        }
+        else {
             UpdateEkfState(K, Y, P_, H, S_);
-        // }
+        }
+
 
         return;
     }
@@ -230,11 +234,11 @@ namespace InertialPoseLib {
         std::cout.precision(3);
         std::cout << "State:\t" << std::endl;
         std::cout << "Position:\t" << S_.pos.transpose() << std::endl;
-        std::cout << "Rotation:\t" << RotToVec(S_.rot.toRotationMatrix()).transpose() << std::endl;
+        std::cout << "Rotation:\t" << RotToVec(S_.rot.toRotationMatrix()).transpose() * 180.0/M_PI <<" deg"<< std::endl;
         std::cout << "Velocity:\t" << S_.vel.transpose() << std::endl;
-        std::cout << "Gyro:\t" << S_.gyro.transpose() << std::endl;
+        std::cout << "Gyro:\t" << S_.gyro.transpose() * 180.0/M_PI <<" deg/s" << std::endl;
         std::cout << "Acc:\t" << S_.acc.transpose() << std::endl;
-        std::cout << "Bias Gyro:\t" << S_.bg.transpose() << std::endl;
+        std::cout << "Bias Gyro:\t" << S_.bg.transpose() * 180.0/M_PI <<" deg/s" << std::endl;
         std::cout << "Bias Acc:\t" << S_.ba.transpose() << std::endl;
         std::cout << "Gravity:\t" << S_.grav.transpose() << std::endl;
     }
@@ -254,37 +258,9 @@ namespace InertialPoseLib {
         // 1. Calculate speed in vehicle local frame
         Eigen::Vector3d vel_local = S_.rot.inverse() * S_.vel;
 
-        // 2. Calculate centrifugal force (a_c = v * ω)
-        // Centrifugal force acts in the y-axis direction in the vehicle coordinate system
-        double centripetal_acc = vel_local.x() * S_.gyro.z(); // v * yaw_rate
-
-        // 3. Create centrifugal compensation vector (vehicle local frame)
-        Eigen::Vector3d vec_acc_centrip(0, centripetal_acc, 0);
-
-        // 1. Estimate local acceleration (based on speed change rate)
-        static double prev_vel_local_x = vel_local.x();
-        static double prev_time = imu_input.timestamp;
-
-        double dt = imu_input.timestamp - prev_time;
-        if (dt < 1e-6) return; // Return if time difference is too small
-
-        // Calculate acceleration based on speed change rate TODO: At the beginning of EKF, speed jumps and this value jumps --> Pitch error occurs
-        double est_acc_x = (vel_local.x() - prev_vel_local_x) / dt;
-        // double est_acc_x = S_.acc.x();
-        Eigen::Vector3d est_acc_local = Eigen::Vector3d(est_acc_x, 0, 0);
-
-        // Update state
-        prev_vel_local_x = vel_local.x();
-        prev_time = imu_input.timestamp;
-
         // 4. Pure gravity component compensated for centrifugal force
-        Eigen::Vector3d compensated_acc = vec_acc_meas - vec_acc_centrip;
-
-        // TODO:
-        // If rotation is captured, compensate for longitudinal acceleration
-        // if (IsRotationStabilized()) {
-        //     compensated_acc -= est_acc_local;
-        // }
+        // Eigen::Vector3d compensated_acc = vec_acc_meas - vec_acc_centrip;
+        Eigen::Vector3d compensated_acc = vec_acc_meas;
 
         // Check the magnitude of the compensated acceleration
         const double d_acc_sensor_magnitude = vec_acc_meas.norm();
@@ -318,24 +294,9 @@ namespace InertialPoseLib {
         // 5. Set Measurement noise covariance (R)
         Eigen::Matrix2d R = Eigen::Matrix2d::Zero();
 
-        // double d_base_uncertainty = std::pow(20.0 * cfg_.d_imu_std_acc_mps, 2);
-        double d_base_uncertainty = 1.0 * M_PI / 180.0;
-
-        // TODO:
-        // Until the state is initialized, keep the update strength weak (risk of divergence)
-        // if (IsStateInitialized() == false) d_base_uncertainty = 10.0 * M_PI / 180.0;
-
-        // Increase uncertainty according to dynamic situation
-        const double centripetal_uncertainty = std::abs(centripetal_acc) / 9.81 * 10.0; // Normalize in g units
-        const double longitudinal_uncertainty = std::abs(est_acc_x) / 9.81 * 10.0;      // Normalize in g units
-        const double acc_diff_uncertainty = std::abs(d_acc_diff) / 9.81 * 10.0;
-        const double d_lat_noise_scale = 1.0 + acc_diff_uncertainty + centripetal_uncertainty;
-        const double d_longi_noise_scale = 1.0 + acc_diff_uncertainty + longitudinal_uncertainty;
-
-
         // Final measurement noise covariance
-        R(0, 0) = std::max(std::pow(d_base_uncertainty * d_lat_noise_scale, 2), std::pow(1.0 * M_PI / 180.0, 2));   // roll
-        R(1, 1) = std::max(std::pow(d_base_uncertainty * d_longi_noise_scale, 2), std::pow(1.0 * M_PI / 180.0, 2)); // pitch
+        R(0, 0) = 1.0;   // roll
+        R(1, 1) = 1.0; // pitch
 
         // 6. Kalman gain
         Eigen::Matrix2d S = H * P_ * H.transpose() + R;                             // Innovation covariance
@@ -347,11 +308,11 @@ namespace InertialPoseLib {
     }
 
     template <int MEAS_SIZE, int K_COLS>
-    void PoseEstimation::UpdateEkfState(const Eigen::Matrix<double, STATE_ORDER, K_COLS>& K,    // 칼만 게인
-                        const Eigen::Matrix<double, MEAS_SIZE, 1>& Y,           // 잔차
-                        Eigen::Matrix<double, STATE_ORDER, STATE_ORDER>& P,     // 공분산 행렬
-                        const Eigen::Matrix<double, MEAS_SIZE, STATE_ORDER>& H, // 관측 행렬
-                        EkfState& X                                             // EKF 상태
+    void PoseEstimation::UpdateEkfState(const Eigen::Matrix<double, STATE_ORDER, K_COLS>& K,
+                        const Eigen::Matrix<double, MEAS_SIZE, 1>& Y,
+                        Eigen::Matrix<double, STATE_ORDER, STATE_ORDER>& P,
+                        const Eigen::Matrix<double, MEAS_SIZE, STATE_ORDER>& H,
+                        EkfState& X                                             
     ) {
         // State update
         Eigen::Matrix<double, STATE_ORDER, 1> state_update = K * Y;

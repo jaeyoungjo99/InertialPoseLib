@@ -9,17 +9,21 @@
 namespace InertialPoseLib {
     class PoseEstimation {
     public:
-        PoseEstimation(double imu_bias_std_gyro = 0.001, double imu_bias_std_acc = 0.001)
-        {Reset(imu_bias_std_gyro, imu_bias_std_acc);}
+        PoseEstimation(double imu_bias_std_gyro = 0.0001, double imu_bias_std_acc = 0.0001, bool estimate_gravity = false)
+        {Reset(imu_bias_std_gyro, imu_bias_std_acc, estimate_gravity);}
 
         ~PoseEstimation() {}
 
-        void Reset(double imu_bias_std_gyro, double imu_bias_std_acc);
+        void Reset(double imu_bias_std_gyro, double imu_bias_std_acc , bool estimate_gravity);
 
         void PredictImu(const ImuStruct& imu_input);
-        void UpdateWithGnss(const GnssStruct& gnss_input);
+        void UpdateWithGnss(const GnssStruct& gnss_input, bool is_3dof = false);
         
         void PrintState() const;
+
+        EkfState GetCurrentState() const{
+            return S_;
+        }
 
         void TestPrint() const{
             std::cout << "Test PoseEstimation" << std::endl;
@@ -41,12 +45,12 @@ namespace InertialPoseLib {
         EkfState S_;
         Eigen::Matrix<double, STATE_ORDER, STATE_ORDER> P_; // covariance
 
-        double state_std_pos_m_ = 0.1;
-        double state_std_rot_rad_ = 0.1;
-        double state_std_vel_mps_ = 0.1;
+        double state_std_pos_m_ = 0.02;
+        double state_std_rot_rad_ = 0.003;
+        double state_std_vel_mps_ = 2.0;
 
-        double imu_std_gyro_;
-        double imu_std_acc_;
+        double imu_std_gyro_ = 0.00015;
+        double imu_std_acc_ = 0.001;
         double imu_bias_std_gyro_;
         double imu_bias_std_acc_;
 
