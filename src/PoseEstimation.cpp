@@ -1,11 +1,22 @@
 #include "InertialPoseLib/PoseEstimation.hpp"
 
 namespace InertialPoseLib {
-    void PoseEstimation::Reset(double imu_bias_std_gyro, double imu_bias_std_acc, bool estimate_gravity){
+    void PoseEstimation::Reset(const PoseEstimationParams &params){
         
-        imu_bias_std_gyro_ = imu_bias_std_gyro;
-        imu_bias_std_acc_ = imu_bias_std_acc;
-        estimate_gravity_ = estimate_gravity;
+        imu_gyro_std_ = params.imu_gyro_std;
+        imu_acc_std_ = params.imu_acc_std;
+
+        imu_bias_gyro_std_ = params.imu_bias_gyro_std;
+        imu_bias_acc_std_ = params.imu_bias_acc_std;
+
+        imu_gravity_ = params.imu_gravity;
+
+        state_std_pos_m_ = params.state_std_pos_m;
+        state_std_rot_rad_ = params.state_std_rot_rad;
+        state_std_vel_mps_ = params.state_std_vel_mps;
+
+        estimate_imu_bias_ = params.estimate_imu_bias;
+        estimate_gravity_ = params.estimate_gravity;
 
         // State initialization using configuration
         S_.pos.setZero();
@@ -20,27 +31,27 @@ namespace InertialPoseLib {
         // Covariance initialization using configuration
         P_ = Eigen::MatrixXd::Identity(STATE_ORDER, STATE_ORDER) * INIT_STATE_COV;
 
-        P_(S_ROLL_RATE, S_ROLL_RATE) = imu_std_gyro_;
-        P_(S_PITCH_RATE, S_PITCH_RATE) = imu_std_gyro_;
-        P_(S_YAW_RATE, S_YAW_RATE) = imu_std_gyro_;
+        P_(S_ROLL_RATE, S_ROLL_RATE) = imu_gyro_std_;
+        P_(S_PITCH_RATE, S_PITCH_RATE) = imu_gyro_std_;
+        P_(S_YAW_RATE, S_YAW_RATE) = imu_gyro_std_;
 
-        P_(S_B_ROLL_RATE, S_B_ROLL_RATE) = imu_bias_std_gyro_;
-        P_(S_B_PITCH_RATE, S_B_PITCH_RATE) = imu_bias_std_gyro_;
-        P_(S_B_YAW_RATE, S_B_YAW_RATE) = imu_bias_std_gyro_;
-        P_(S_B_AX, S_B_AX) = imu_bias_std_acc_;
-        P_(S_B_AY, S_B_AY) = imu_bias_std_acc_;
-        P_(S_B_AZ, S_B_AZ) = imu_bias_std_acc_;
+        P_(S_B_ROLL_RATE, S_B_ROLL_RATE) = imu_bias_gyro_std_;
+        P_(S_B_PITCH_RATE, S_B_PITCH_RATE) = imu_bias_gyro_std_;
+        P_(S_B_YAW_RATE, S_B_YAW_RATE) = imu_bias_gyro_std_;
+        P_(S_B_AX, S_B_AX) = imu_bias_acc_std_;
+        P_(S_B_AY, S_B_AY) = imu_bias_acc_std_;
+        P_(S_B_AZ, S_B_AZ) = imu_bias_acc_std_;
 
-        P_(S_G_X, S_G_X) = imu_bias_std_acc_;
-        P_(S_G_Y, S_G_Y) = imu_bias_std_acc_;
-        P_(S_G_Z, S_G_Z) = imu_bias_std_acc_;
+        P_(S_G_X, S_G_X) = imu_bias_acc_std_ * 10.0;
+        P_(S_G_Y, S_G_Y) = imu_bias_acc_std_ * 10.0;
+        P_(S_G_Z, S_G_Z) = imu_bias_acc_std_ * 10.0;
 
-        P_(S_IMU_ROLL, S_IMU_ROLL) = imu_bias_std_gyro_;
-        P_(S_IMU_PITCH, S_IMU_PITCH) = imu_bias_std_gyro_;
-        P_(S_IMU_YAW, S_IMU_YAW) = imu_bias_std_gyro_;
+        P_(S_IMU_ROLL, S_IMU_ROLL) = imu_bias_gyro_std_;
+        P_(S_IMU_PITCH, S_IMU_PITCH) = imu_bias_gyro_std_;
+        P_(S_IMU_YAW, S_IMU_YAW) = imu_bias_gyro_std_;
 
         prev_timestamp_ = 0.0;
-        b_reset_for_init_prediction_ = true;
+        reset_for_init_prediction_ = true;
 
     }
 
@@ -55,27 +66,13 @@ namespace InertialPoseLib {
         
         double cur_timestamp = imu_input.timestamp;
 
-        if (b_reset_for_init_prediction_ == true) {
+        if (reset_for_init_prediction_ == true) {
             prev_timestamp_ = cur_timestamp;
 
-            b_reset_for_init_prediction_ = false;
+            reset_for_init_prediction_ = false;
 
             return;
         }
-
-        // CheckRotationStabilized();
-
-        // if (IsStateInitialized() == false) {
-        //     prev_timestamp_ = cur_timestamp;
-
-        //     // Complementary Filter requires Yaw initialization to estimate Roll and Pitch
-        //     if (IsYawInitialized() == true &&
-        //         (cfg_.i_gps_type == GpsType::BESTPOS || cfg_.b_use_complementary_filter)) {
-        //         ComplementaryKalmanFilter(imu_input);
-        //     }
-
-        //     return false;
-        // }
 
         // Calculate prediction dt
         double d_dt = cur_timestamp - prev_timestamp_;
@@ -120,13 +117,13 @@ namespace InertialPoseLib {
                 Eigen::Matrix3d::Identity() * std::pow(state_std_rot_rad_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_VX, S_VX) = Eigen::Matrix3d::Identity() * std::pow(state_std_vel_mps_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_ROLL_RATE, S_ROLL_RATE) =
-                Eigen::Matrix3d::Identity() * std::pow(imu_std_gyro_, 2) * d_dt * d_dt;
-        Q.block<3, 3>(S_AX, S_AX) = Eigen::Matrix3d::Identity() * std::pow(imu_std_acc_, 2) * d_dt * d_dt;
+                Eigen::Matrix3d::Identity() * std::pow(imu_gyro_std_, 2) * d_dt * d_dt;
+        Q.block<3, 3>(S_AX, S_AX) = Eigen::Matrix3d::Identity() * std::pow(imu_acc_std_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_B_ROLL_RATE, S_B_ROLL_RATE) =
-                Eigen::Matrix3d::Identity() * std::pow(imu_bias_std_gyro_, 2) * d_dt * d_dt;
+                Eigen::Matrix3d::Identity() * std::pow(imu_bias_gyro_std_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_B_AX, S_B_AX) =
-                Eigen::Matrix3d::Identity() * std::pow(imu_bias_std_acc_, 2) * d_dt * d_dt;
-        Q.block<3, 3>(S_G_X, S_G_X) = Eigen::Matrix3d::Identity() * std::pow(imu_bias_std_acc_, 2) * d_dt * d_dt;
+                Eigen::Matrix3d::Identity() * std::pow(imu_bias_acc_std_, 2) * d_dt * d_dt;
+        Q.block<3, 3>(S_G_X, S_G_X) = Eigen::Matrix3d::Identity() * std::pow(imu_bias_acc_std_ * 10.0, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_IMU_ROLL, S_IMU_ROLL) =
                 Eigen::Matrix3d::Identity() * std::pow(state_std_rot_rad_, 2) * d_dt * d_dt;
 
@@ -135,15 +132,18 @@ namespace InertialPoseLib {
 
         // Position partial differentiation
         F.block<3, 3>(S_X, S_VX) = Eigen::Matrix3d::Identity() * d_dt; // ∂pos / ∂vel
-        F.block<3, 3>(S_X, S_B_AX) = -0.5 * G_R_I * d_dt * d_dt; // ∂pos / ∂ba (including global transform)
 
-        // Rotation partial differentiation
-        F.block<3, 3>(S_ROLL, S_B_ROLL_RATE) = -PartialDerivativeRotWrtGyro(corrected_gyro, d_dt); // d rot / d bg
+        if(estimate_imu_bias_){
+            F.block<3, 3>(S_X, S_B_AX) = -0.5 * G_R_I * d_dt * d_dt; // ∂pos / ∂ba (including global transform)
+            
+            // Rotation partial differentiation
+            F.block<3, 3>(S_ROLL, S_B_ROLL_RATE) = -PartialDerivativeRotWrtGyro(corrected_gyro, d_dt); // d rot / d bg
+            F.block<3, 3>(S_ROLL_RATE, S_B_ROLL_RATE) = -Eigen::Matrix3d::Identity(); // ∂gyro / ∂bg
 
-        // Velocity partial differentiation
-        F.block<3, 3>(S_VX, S_B_AX) = -G_R_I * d_dt; // ∂vel / ∂ba (including global transform)
-        F.block<3, 3>(S_ROLL_RATE, S_B_ROLL_RATE) = -Eigen::Matrix3d::Identity(); // ∂gyro / ∂bg
-        F.block<3, 3>(S_AX, S_B_AX) = -G_R_I; // ∂acc / ∂ba (including global transform)
+            // Velocity partial differentiation
+            F.block<3, 3>(S_VX, S_B_AX) = -G_R_I * d_dt; // ∂vel / ∂ba (including global transform)
+            F.block<3, 3>(S_AX, S_B_AX) = -G_R_I; // ∂acc / ∂ba (including global transform)
+        }
 
         if (estimate_gravity_) {
             // Only Z axis
@@ -157,12 +157,8 @@ namespace InertialPoseLib {
 
         prev_timestamp_ = cur_timestamp;
 
-        std::cout<<"P_ROLL "<<P_(S_ROLL,S_ROLL) <<" P_ROLL_RATE "<<P_(S_ROLL_RATE,S_ROLL_RATE) 
-         <<" P_B_ROLL_RATE "<<P_(S_B_ROLL_RATE,S_B_ROLL_RATE)<<std::endl;
-
         // TODO:
         // if (cfg_.b_use_zupt) ZuptImu(imu_input);
-        // if (cfg_.i_gps_type == GpsType::BESTPOS || cfg_.b_use_complementary_filter) ComplementaryKalmanFilter(imu_input);
 
         ComplementaryKalmanFilter(imu_input);
 
@@ -171,11 +167,6 @@ namespace InertialPoseLib {
 
     void PoseEstimation::UpdateWithGnss(const GnssStruct& gnss_input, bool is_3dof){
         std::lock_guard<std::mutex> lock(mutex_state_);
-
-        // CheckYawInitialized();
-        // CheckStateInitialized();
-        // CheckRotationStabilized();
-        // CheckStateStabilized();
 
         // Main Algorithm
 
@@ -212,7 +203,6 @@ namespace InertialPoseLib {
         Y.head<3>() = Z.head<3>() - Z_state.head<3>(); // Position residual
         Y.tail<3>() = res_angle_euler;                 // Rotation residual as angle-axis vector
 
-
         if (is_3dof == true) {
             Eigen::Matrix<double, 3, STATE_ORDER> H3 = H.block<3, STATE_ORDER>(0, 0);
             Eigen::Matrix<double, 3, 3> S3 = H3 * P_ * H3.transpose() + R.block<3, 3>(0, 0);
@@ -225,13 +215,12 @@ namespace InertialPoseLib {
             UpdateEkfState(K, Y, P_, H, S_);
         }
 
-
         return;
     }
 
     void PoseEstimation::PrintState() const{
         
-        std::cout.precision(3);
+        std::cout.precision(6);
         std::cout << "State:\t" << std::endl;
         std::cout << "Position:\t" << S_.pos.transpose() << std::endl;
         std::cout << "Rotation:\t" << RotToVec(S_.rot.toRotationMatrix()).transpose() * 180.0/M_PI <<" deg"<< std::endl;
