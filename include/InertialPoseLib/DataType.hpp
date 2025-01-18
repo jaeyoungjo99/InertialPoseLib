@@ -1,3 +1,13 @@
+/**
+ * @file DataType.hpp
+ * @author Jaeyoung Jo <wodud3743@gmail.com>
+ * @brief Data type file for InertialPoseLib
+ * @version 0.1
+ * @date 2025-01-18
+ *
+ * @copyright Copyright (c) 2025
+ */
+
 #ifndef __DATA_TYPE_HPP__
 #define __DATA_TYPE_HPP__
 #pragma once

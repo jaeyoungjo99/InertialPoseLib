@@ -1,3 +1,13 @@
+/**
+ * @file PoseEstimation.cpp
+ * @author Jaeyoung Jo <wodud3743@gmail.com>
+ * @brief Pose Estimation functions for InertialPoseLib
+ * @version 0.1
+ * @date 2025-01-18
+ *
+ * @copyright Copyright (c) 2025
+ */
+
 #include "InertialPoseLib/PoseEstimation.hpp"
 
 namespace InertialPoseLib {

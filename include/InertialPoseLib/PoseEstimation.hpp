@@ -1,3 +1,13 @@
+/**
+ * @file PoseEstimation.hpp
+ * @author Jaeyoung Jo <wodud3743@gmail.com>
+ * @brief Pose Estimation functions for InertialPoseLib
+ * @version 0.1
+ * @date 2025-01-18
+ *
+ * @copyright Copyright (c) 2025
+ */
+
 #ifndef __POSE_ESTIMATION_HPP__
 #define __POSE_ESTIMATION_HPP__
 #pragma once
@@ -49,9 +59,8 @@ namespace InertialPoseLib {
                             const Eigen::Matrix<double, MEAS_SIZE, 1>& Y,           // Residual
                             Eigen::Matrix<double, STATE_ORDER, STATE_ORDER>& P,     // Covariance matrix
                             const Eigen::Matrix<double, MEAS_SIZE, STATE_ORDER>& H, // Observation matrix
-                            EkfState& X                                             // EKF State
-        );
-
+                            EkfState& X);                                           // EKF State
+        
     // variables
     private:
         EkfState S_;

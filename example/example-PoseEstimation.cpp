@@ -2,12 +2,26 @@
 #include <InertialPoseLib/PoseEstimation.hpp>
 
 int main() {
-    InertialPoseLib::PoseEstimation pose_estimation(0.001, 0.001);
+    InertialPoseLib::PoseEstimationParams pose_estimation_params = {
+        0.0001,  // imu_gyro_std
+        0.001,   // imu_acc_std
+        0.0001,  // imu_bias_gyro_std
+        0.0001,  // imu_bias_acc_std
+
+        9.81,
+
+        0.02,    // state_std_pos_m
+        0.003,    // state_std_rot_rad
+        2.0,    // state_std_vel_mps
+
+        false,   // estimate_imu_bias
+        false    // estimate_gravity
+    };
     
     double timestamp = 0.0; 
     int max_sim_count = 100;
 
-    InertialPoseLib::PoseEstimation pose_estimation(0.001, 0.001);
+    InertialPoseLib::PoseEstimation pose_estimation(pose_estimation_params);
     
     int count = 0;
     while (count < max_sim_count) {
@@ -33,6 +47,8 @@ int main() {
         pose_estimation.UpdateWithGnss(gnss_input);
 
         pose_estimation.PrintState();
+
+        InertialPoseLib::EkfState ekf_state = pose_estimation.GetCurrentState();
 
         timestamp += 0.1;
     }

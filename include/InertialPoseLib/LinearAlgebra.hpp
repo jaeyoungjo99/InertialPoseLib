@@ -1,3 +1,13 @@
+/**
+ * @file LinearAlgebra.hpp
+ * @author Jaeyoung Jo <wodud3743@gmail.com>
+ * @brief Linear Algebra functions for InertialPoseLib
+ * @version 0.1
+ * @date 2025-01-18
+ *
+ * @copyright Copyright (c) 2025
+ */
+
 #ifndef __LINEAR_ALGEBRA_HPP__
 #define __LINEAR_ALGEBRA_HPP__
 #pragma once
