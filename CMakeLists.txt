@@ -26,8 +26,9 @@ string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
 
 # Set the default "real" precision
 set(INERTIALPOSELIB_PRECISION 2 CACHE STRING
-  "Precision: 1 = float, 2 = double, 3 = extended, 4 = quadruple, 5 = variable")
-set_property(CACHE INERTIALPOSELIB_PRECISION PROPERTY STRINGS 1 2 3 4 5)
+  "Precision: 1 = float, 2 = double, 3 = extended")
+set_property(CACHE INERTIALPOSELIB_PRECISION PROPERTY STRINGS 1 2 3)
+add_definitions(-DREAL_PRECISION=${INERTIALPOSELIB_PRECISION})
 # Defines a cache variable for the precision setting of the library, with a default value of 2 (double precision).
 
 set(LIBNAME InertialPose)

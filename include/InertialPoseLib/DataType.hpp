@@ -16,7 +16,6 @@
 #include <deque>
 #include <iostream>
 #include <memory>
-// #include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -24,6 +23,42 @@
 
 // Libraries
 #include <Eigen/Dense>
+
+// Define Real type based on precision setting
+#if REAL_PRECISION == 1
+    using Real = float; // 1 = float
+    using Matrix3 =  Eigen::Matrix3f;
+    using Vector3 =  Eigen::Vector3f;
+    using Quaternion =  Eigen::Quaternionf;
+    using AngleAxis =  Eigen::AngleAxisf;
+    using Affine3 =  Eigen::Affine3f;
+    using MatrixX =  Eigen::MatrixXf;
+#elif REAL_PRECISION == 2
+    using Real = double; // 2 = double
+    using Matrix3 =  Eigen::Matrix3d;
+    using Vector3 =  Eigen::Vector3d;
+    using Quaternion =  Eigen::Quaterniond;
+    using AngleAxis =  Eigen::AngleAxisd;
+    using Affine3 =  Eigen::Affine3d;
+    using MatrixX =  Eigen::MatrixXd;
+#elif REAL_PRECISION == 3
+    using Real = long double; // 3 = extended
+    using Matrix3 =  Eigen::Matrix3l;
+    using Vector3 =  Eigen::Vector3l;
+    using Quaternion =  Eigen::Quaternionl;
+    using AngleAxis =  Eigen::AngleAxisl;
+    using Affine3 =  Eigen::Affine3l;
+    using MatrixX =  Eigen::MatrixXl;
+#else
+    using Real = double; // Default to double
+    using Matrix3 =  Eigen::Matrix3d;
+    using Vector3 =  Eigen::Vector3d;
+    using Quaternion =  Eigen::Quaterniond;
+    using AngleAxis =  Eigen::AngleAxisd;
+    using Affine3 =  Eigen::Affine3d;
+    using MatrixX =  Eigen::MatrixXd;
+#endif
+
 
 #define S_X 0
 #define S_Y 1
@@ -53,37 +88,36 @@
 #define STATE_ORDER 24
 
 #define GNSS_MEAS_ORDER 6 // x y z roll pitch yaw
-#define CAN_MEAS_ORDER 2  // v_local_x, yaw_rate
 #define INIT_STATE_COV 100.0
 
 namespace InertialPoseLib {
 
     // EKF state
     typedef struct {
-        double timestamp{0};
-        Eigen::Vector3d pos{Eigen::Vector3d::Zero()};           // global
-        Eigen::Quaterniond rot{Eigen::Quaterniond::Identity()}; // global
-        Eigen::Vector3d vel{Eigen::Vector3d::Zero()};           // global
-        Eigen::Vector3d gyro{Eigen::Vector3d::Zero()};          // local
-        Eigen::Vector3d acc{Eigen::Vector3d::Zero()};           // global
-        Eigen::Vector3d bg{Eigen::Vector3d::Zero()};            // bias gyro
-        Eigen::Vector3d ba{Eigen::Vector3d::Zero()};            // bias acc
-        Eigen::Vector3d grav{Eigen::Vector3d::Zero()};          // global gravity
-        Eigen::Quaterniond imu_rot{Eigen::Quaterniond::Identity()};
+        Real timestamp{0};
+        Vector3 pos{Vector3::Zero()};           // global
+        Quaternion rot{Quaternion::Identity()}; // global
+        Vector3 vel{Vector3::Zero()};           // global
+        Vector3 gyro{Vector3::Zero()};          // local
+        Vector3 acc{Vector3::Zero()};           // global
+        Vector3 bg{Vector3::Zero()};            // bias gyro
+        Vector3 ba{Vector3::Zero()};            // bias acc
+        Vector3 grav{Vector3::Zero()};          // global gravity
+        Quaternion imu_rot{Quaternion::Identity()};
     } EkfState;
 
     typedef struct {
-        double timestamp{0};
-        Eigen::Vector3d acc{Eigen::Vector3d::Zero()};
-        Eigen::Vector3d gyro{Eigen::Vector3d::Zero()};
+        Real timestamp{0};
+        Vector3 acc{Vector3::Zero()};
+        Vector3 gyro{Vector3::Zero()};
     } ImuStruct;
 
     typedef struct {
-        double timestamp{0};
-        Eigen::Vector3d pos = Eigen::Vector3d::Zero();           // global
-        Eigen::Quaterniond rot = Eigen::Quaterniond::Identity(); // global
-        Eigen::Matrix3d pos_cov = Eigen::Matrix3d::Identity();   // position covariance (3x3 matrix)
-        Eigen::Matrix3d rot_cov = Eigen::Matrix3d::Identity();   // rotation covariance (3x3 matrix)
+        Real timestamp{0};
+        Vector3 pos = Vector3::Zero();           // global
+        Quaternion rot = Quaternion::Identity(); // global
+        Matrix3 pos_cov = Matrix3::Identity();   // position covariance (3x3 matrix)
+        Matrix3 rot_cov = Matrix3::Identity();   // rotation covariance (3x3 matrix)
     } GnssStruct;
     
 } // namespace InertialPoseLib

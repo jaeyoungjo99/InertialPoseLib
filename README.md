@@ -14,6 +14,17 @@ InertialPoseLib is a library for estimating **IMU State**
 
 Refer to the example file in the `/example` folder: `example-PoseEstimation.cpp`
 
+## Build Instructions
+
+To build the InertialPoseLib library, follow these steps:
+
+1. **Run CMake**:
+   When building with CMake, you can use the `INERTIALPOSELIB_PRECISION` option to specify the precision of floating-point variables. For example:
+   ```bash
+   catkin_make -DINERTIALPOSELIB_PRECISION=1
+   ```
+   This option allows you to choose between different precision levels (1 for float, 2 for double, etc.).
+
 ## Links
-- example: TODO
+- Example video: TODO
 - Author: Jaeyoung Jo, wodud3743@gmail.com

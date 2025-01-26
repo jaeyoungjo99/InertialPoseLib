@@ -19,16 +19,16 @@
 namespace InertialPoseLib {
 
     struct PoseEstimationParams {
-        double imu_gyro_std = 0.0001;
-        double imu_acc_std = 0.001;
-        double imu_bias_gyro_std = 0.0001;
-        double imu_bias_acc_std = 0.0001;
+        Real imu_gyro_std = 0.0001;
+        Real imu_acc_std = 0.001;
+        Real imu_bias_gyro_std = 0.0001;
+        Real imu_bias_acc_std = 0.0001;
 
-        double imu_gravity = 9.81;
+        Real imu_gravity = 9.81;
 
-        double state_std_pos_m = 0.02;
-        double state_std_rot_rad = 0.003;
-        double state_std_vel_mps = 2.0;
+        Real state_std_pos_m = 0.02;
+        Real state_std_rot_rad = 0.003;
+        Real state_std_vel_mps = 2.0;
 
         bool estimate_imu_bias = false;
         bool estimate_gravity = false;
@@ -55,19 +55,19 @@ namespace InertialPoseLib {
         void ComplementaryKalmanFilter(const ImuStruct& imu_input);
 
         template <int MEAS_SIZE, int K_COLS>
-        void UpdateEkfState(const Eigen::Matrix<double, STATE_ORDER, K_COLS>& K,    // Kalman Gain
-                            const Eigen::Matrix<double, MEAS_SIZE, 1>& Y,           // Residual
-                            Eigen::Matrix<double, STATE_ORDER, STATE_ORDER>& P,     // Covariance matrix
-                            const Eigen::Matrix<double, MEAS_SIZE, STATE_ORDER>& H, // Observation matrix
+        void UpdateEkfState(const Eigen::Matrix<Real, STATE_ORDER, K_COLS>& K,    // Kalman Gain
+                            const Eigen::Matrix<Real, MEAS_SIZE, 1>& Y,           // Residual
+                            Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER>& P,     // Covariance matrix
+                            const Eigen::Matrix<Real, MEAS_SIZE, STATE_ORDER>& H, // Observation matrix
                             EkfState& X);                                           // EKF State
         
     // variables
     private:
         EkfState S_;
-        Eigen::Matrix<double, STATE_ORDER, STATE_ORDER> P_; // covariance
+        Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER> P_; // covariance
 
         std::mutex mutex_state_;
-        double prev_timestamp_;
+        Real prev_timestamp_;
         bool reset_for_init_prediction_;
 
     // config
@@ -75,16 +75,16 @@ namespace InertialPoseLib {
         bool estimate_gravity_;
         bool estimate_imu_bias_;
 
-        double state_std_pos_m_;
-        double state_std_rot_rad_;
-        double state_std_vel_mps_;
+        Real state_std_pos_m_;
+        Real state_std_rot_rad_;
+        Real state_std_vel_mps_;
 
-        double imu_gyro_std_;
-        double imu_acc_std_;
-        double imu_bias_gyro_std_;
-        double imu_bias_acc_std_;
+        Real imu_gyro_std_;
+        Real imu_acc_std_;
+        Real imu_bias_gyro_std_;
+        Real imu_bias_acc_std_;
 
-        double imu_gravity_;
+        Real imu_gravity_;
     };
 
 } // namespace InertialPoseLib

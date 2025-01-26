@@ -24,7 +24,7 @@
 
 // Libraries
 #include <Eigen/Dense>
-
+#include "InertialPoseLib/DataType.hpp"
 
 namespace InertialPoseLib {
     /*
@@ -35,8 +35,8 @@ namespace InertialPoseLib {
      * @param V 3D vector
      * @return 3x3 skew-symmetric matrix
      */
-    inline Eigen::Matrix3d SkewSymmetricMatrix(const Eigen::Vector3d& V) {
-        Eigen::Matrix3d M;
+    inline Matrix3 SkewSymmetricMatrix(const Vector3& V) {
+        Matrix3 M;
 
         M << 0.0, -V(2), V(1), V(2), 0.0, -V(0), -V(1), V(0), 0.0;
         return M;
@@ -48,16 +48,16 @@ namespace InertialPoseLib {
      * @param R SO(3) rotation matrix
      * @return so(3) 3D vector
      */
-    inline Eigen::Vector3d Log(const Eigen::Matrix3d& R) {
-        double cos_theta = (R.trace() - 1) / 2.0;
-        cos_theta = std::min(1.0, std::max(-1.0, cos_theta));  // Clamping for numerical stability
-        double theta = std::acos(cos_theta);
+    inline Vector3 Log(const Matrix3& R) {
+        Real cos_theta = (R.trace() - 1.0) * 0.5;
+        cos_theta = std::min(Real(1.0), std::max(Real(-1.0), cos_theta));  // Clamping for numerical stability
+        Real theta = std::acos(cos_theta);
         
         if (std::abs(theta) < 1e-5) {
-            return Eigen::Vector3d::Zero();
+            return Vector3::Zero();
         }
-        Eigen::Matrix3d log_matrix = (R - R.transpose()) / (2.0 * std::sin(theta));
-        return theta * Eigen::Vector3d(log_matrix(2, 1), log_matrix(0, 2), log_matrix(1, 0));
+        Matrix3 log_matrix = (R - R.transpose()) / (2.0 * std::sin(theta));
+        return theta * Vector3(log_matrix(2, 1), log_matrix(0, 2), log_matrix(1, 0));
     }
 
     /**
@@ -65,14 +65,14 @@ namespace InertialPoseLib {
      * @param omega so(3) 3D vector
      * @return SO(3) rotation matrix
      */
-    inline Eigen::Matrix3d Exp(const Eigen::Vector3d& omega) {
-        double theta = omega.norm();
-        Eigen::Matrix3d Eye3 = Eigen::Matrix3d::Identity();
+    inline Matrix3 Exp(const Vector3& omega) {
+        Real theta = omega.norm();
+        Matrix3 Eye3 = Matrix3::Identity();
         if (theta < 1e-5) {
             return Eye3;
         }
-        Eigen::Vector3d axis = omega / theta;
-        Eigen::Matrix3d K = SkewSymmetricMatrix(axis);
+        Vector3 axis = omega / theta;
+        Matrix3 K = SkewSymmetricMatrix(axis);
         return Eye3 + std::sin(theta) * K + (1 - std::cos(theta)) * K * K;
     }
 
@@ -82,8 +82,8 @@ namespace InertialPoseLib {
      * @param d_dt_sec time step
      * @return rotation matrix change
      */
-    inline Eigen::Matrix3d ExpGyroToRotMatrix(const Eigen::Vector3d& gyro, double d_dt_sec) {
-        Eigen::Vector3d omega = gyro * d_dt_sec; // Angular velocity scaled by time step
+    inline Matrix3 ExpGyroToRotMatrix(const Vector3& gyro, Real d_dt_sec) {
+        Vector3 omega = gyro * d_dt_sec; // Angular velocity scaled by time step
         return Exp(omega); // Use the ExpMap function to get the rotation matrix
     }
 
@@ -94,10 +94,10 @@ namespace InertialPoseLib {
      * @param d_dt_sec time step
      * @return quaternion change
      */
-    inline Eigen::Quaterniond ExpGyroToQuat(const Eigen::Vector3d& gyro, double d_dt_sec) {
-        Eigen::Vector3d omega = gyro * d_dt_sec; // Angular velocity vector scaled by time step
-        Eigen::Matrix3d rotation_matrix = Exp(omega); // Use the Exp function
-        return Eigen::Quaterniond(rotation_matrix); // Convert rotation matrix to quaternion
+    inline Quaternion ExpGyroToQuat(const Vector3& gyro, Real d_dt_sec) {
+        Vector3 omega = gyro * d_dt_sec; // Angular velocity vector scaled by time step
+        Matrix3 rotation_matrix = Exp(omega); // Use the Exp function
+        return Quaternion(rotation_matrix); // Convert rotation matrix to quaternion
     }
 
     /*
@@ -121,19 +121,19 @@ namespace InertialPoseLib {
      * @param d_dt_sec time step
      * @return 3x3 Jacobian matrix
      */
-    inline Eigen::Matrix3d PartialDerivativeRotWrtGyro(const Eigen::Vector3d& gyro, double d_dt_sec) {
+    inline Matrix3 PartialDerivativeRotWrtGyro(const Vector3& gyro, Real d_dt_sec) {
 
-        Eigen::Vector3d omega = gyro * d_dt_sec; // angular velocity vector scaled by time step
-        double theta = omega.norm(); // total angular velocity
+        Vector3 omega = gyro * d_dt_sec; // angular velocity vector scaled by time step
+        Real theta = omega.norm(); // total angular velocity
 
         if (theta < 1e-5) {
-            return Eigen::Matrix3d::Zero(); // Near-zero rotation, derivative is approximately zero
+            return Matrix3::Zero(); // Near-zero rotation, derivative is approximately zero
         }
 
-        Eigen::Vector3d axis = omega / theta; // rotation axis = angular velocity vector / total angular velocity
-        Eigen::Matrix3d K = SkewSymmetricMatrix(axis); // skew-symmetric matrix: rotation vector representation in SO(3)
-        Eigen::Matrix3d partial_derivative = d_dt_sec * 
-                                            (Eigen::Matrix3d::Identity() 
+        Vector3 axis = omega / theta; // rotation axis = angular velocity vector / total angular velocity
+        Matrix3 K = SkewSymmetricMatrix(axis); // skew-symmetric matrix: rotation vector representation in SO(3)
+        Matrix3 partial_derivative = d_dt_sec * 
+                                            (Matrix3::Identity() 
                                             + (1 - std::cos(theta)) / (theta * theta) * K 
                                             + (theta - std::sin(theta)) / (theta * theta * theta) * K * K);
 
