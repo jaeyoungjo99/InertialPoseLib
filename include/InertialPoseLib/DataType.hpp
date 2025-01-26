@@ -49,11 +49,8 @@
 #define S_G_X 21
 #define S_G_Y 22
 #define S_G_Z 23
-#define S_IMU_ROLL 24
-#define S_IMU_PITCH 25
-#define S_IMU_YAW 26
 
-#define STATE_ORDER 27
+#define STATE_ORDER 24
 
 #define GNSS_MEAS_ORDER 6 // x y z roll pitch yaw
 #define CAN_MEAS_ORDER 2  // v_local_x, yaw_rate

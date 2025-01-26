@@ -56,10 +56,6 @@ namespace InertialPoseLib {
         P_(S_G_Y, S_G_Y) = imu_bias_acc_std_ * 10.0;
         P_(S_G_Z, S_G_Z) = imu_bias_acc_std_ * 10.0;
 
-        P_(S_IMU_ROLL, S_IMU_ROLL) = imu_bias_gyro_std_;
-        P_(S_IMU_PITCH, S_IMU_PITCH) = imu_bias_gyro_std_;
-        P_(S_IMU_YAW, S_IMU_YAW) = imu_bias_gyro_std_;
-
         prev_timestamp_ = 0.0;
         reset_for_init_prediction_ = true;
 
@@ -134,8 +130,6 @@ namespace InertialPoseLib {
         Q.block<3, 3>(S_B_AX, S_B_AX) =
                 Eigen::Matrix3d::Identity() * std::pow(imu_bias_acc_std_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_G_X, S_G_X) = Eigen::Matrix3d::Identity() * std::pow(imu_bias_acc_std_ * 10.0, 2) * d_dt * d_dt;
-        Q.block<3, 3>(S_IMU_ROLL, S_IMU_ROLL) =
-                Eigen::Matrix3d::Identity() * std::pow(state_std_rot_rad_, 2) * d_dt * d_dt;
 
         // Covariance (P) propagation using CV model
         Eigen::Matrix<double, STATE_ORDER, STATE_ORDER> F = Eigen::Matrix<double, STATE_ORDER, STATE_ORDER>::Identity();
@@ -270,7 +264,7 @@ namespace InertialPoseLib {
         Eigen::Vector3d gravity_direction = compensated_acc.normalized();
         Eigen::Vector2d z;                                             // roll, pitch measurement value
         z << std::atan2(gravity_direction.y(), gravity_direction.z()), // roll
-                -std::asin(gravity_direction.x());                     // pitch
+            -std::asin(gravity_direction.x());                         // pitch
 
         // 2. Extract roll, pitch of current state (h(x))
         Eigen::Vector3d current_rpy = RotToVec(S_.rot.toRotationMatrix());
@@ -327,11 +321,6 @@ namespace InertialPoseLib {
         Eigen::Vector3d rot_delta = state_update.segment<3>(3);
         Eigen::Quaterniond quat_delta(Eigen::AngleAxisd(rot_delta.norm(), rot_delta.normalized()));
         X.rot = (X.rot * quat_delta).normalized();
-
-        // Quaternion to imu rotation
-        Eigen::Vector3d imu_rot_delta = state_update.segment<3>(24);
-        Eigen::Quaterniond imu_quat_delta(Eigen::AngleAxisd(imu_rot_delta.norm(), imu_rot_delta.normalized()));
-        X.imu_rot = (X.imu_rot * imu_quat_delta).normalized();
 
         // Covariance update
         P = P - K * H * P;
