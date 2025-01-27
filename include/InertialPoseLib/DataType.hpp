@@ -28,55 +28,57 @@
 #  define INERTIALPOSELIB_PRECISION 2
 #endif
 
-// Define real type based on precision setting
-#if INERTIALPOSELIB_PRECISION == 1
-    typedef float real;
-#elif INERTIALPOSELIB_PRECISION == 2
-    typedef double real;
-#else
-    typedef double real;
-#endif
-
-using Matrix3 = Eigen::Matrix<real, 3, 3>;
-using Vector3 = Eigen::Matrix<real, 3, 1>;
-using Quaternion = Eigen::Quaternion<real>;
-using AngleAxis = Eigen::AngleAxis<real>;
-using Affine3 = Eigen::Transform<real, 3, Eigen::Affine>;
-using MatrixX = Eigen::Matrix<real, Eigen::Dynamic, Eigen::Dynamic>;
-
-
-// Define state order
-#define S_X 0
-#define S_Y 1
-#define S_Z 2
-#define S_ROLL 3
-#define S_PITCH 4
-#define S_YAW 5
-#define S_VX 6
-#define S_VY 7
-#define S_VZ 8
-#define S_ROLL_RATE 9
-#define S_PITCH_RATE 10
-#define S_YAW_RATE 11
-#define S_AX 12
-#define S_AY 13
-#define S_AZ 14
-#define S_B_ROLL_RATE 15
-#define S_B_PITCH_RATE 16
-#define S_B_YAW_RATE 17
-#define S_B_AX 18
-#define S_B_AY 19
-#define S_B_AZ 20
-#define S_G_X 21
-#define S_G_Y 22
-#define S_G_Z 23
-
-#define STATE_ORDER 24
-
-#define GNSS_MEAS_ORDER 6 // x y z roll pitch yaw
-#define INIT_STATE_COV 100.0
-
 namespace InertialPoseLib {
+
+    class Math{
+    public:
+        // Define real type based on precision setting
+        #if INERTIALPOSELIB_PRECISION == 1
+            typedef float real;
+        #elif INERTIALPOSELIB_PRECISION == 2
+            typedef double real;
+        #else
+            typedef double real;
+        #endif
+    };
+
+    typedef Math::real real;
+
+    static constexpr int S_X = 0;
+    static constexpr int S_Y = 1;
+    static constexpr int S_Z = 2;
+    static constexpr int S_ROLL = 3;
+    static constexpr int S_PITCH = 4;
+    static constexpr int S_YAW = 5;
+    static constexpr int S_VX = 6;
+    static constexpr int S_VY = 7;
+    static constexpr int S_VZ = 8;
+    static constexpr int S_ROLL_RATE = 9;
+    static constexpr int S_PITCH_RATE = 10;
+    static constexpr int S_YAW_RATE = 11;
+    static constexpr int S_AX = 12;
+    static constexpr int S_AY = 13;
+    static constexpr int S_AZ = 14;
+    static constexpr int S_B_ROLL_RATE = 15;
+    static constexpr int S_B_PITCH_RATE = 16;
+    static constexpr int S_B_YAW_RATE = 17;
+    static constexpr int S_B_AX = 18;
+    static constexpr int S_B_AY = 19;
+    static constexpr int S_B_AZ = 20;
+    static constexpr int S_G_X = 21;
+    static constexpr int S_G_Y = 22;
+    static constexpr int S_G_Z = 23;
+
+    static constexpr int STATE_ORDER = 24;
+    static constexpr int GNSS_MEAS_ORDER = 6; // x y z roll pitch yaw
+    static constexpr real INIT_STATE_COV = 100.0;
+
+    using Matrix3 = Eigen::Matrix<real, 3, 3>;
+    using Vector3 = Eigen::Matrix<real, 3, 1>;
+    using Quaternion = Eigen::Quaternion<real>;
+    using AngleAxis = Eigen::AngleAxis<real>;
+    using Affine3 = Eigen::Transform<real, 3, Eigen::Affine>;
+    using MatrixX = Eigen::Matrix<real, Eigen::Dynamic, Eigen::Dynamic>;
 
     // EKF state
     typedef struct {
