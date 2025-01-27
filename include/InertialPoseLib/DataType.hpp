@@ -24,42 +24,28 @@
 // Libraries
 #include <Eigen/Dense>
 
-// Define Real type based on precision setting
-#if REAL_PRECISION == 1
-    using Real = float; // 1 = float
-    using Matrix3 =  Eigen::Matrix3f;
-    using Vector3 =  Eigen::Vector3f;
-    using Quaternion =  Eigen::Quaternionf;
-    using AngleAxis =  Eigen::AngleAxisf;
-    using Affine3 =  Eigen::Affine3f;
-    using MatrixX =  Eigen::MatrixXf;
-#elif REAL_PRECISION == 2
-    using Real = double; // 2 = double
-    using Matrix3 =  Eigen::Matrix3d;
-    using Vector3 =  Eigen::Vector3d;
-    using Quaternion =  Eigen::Quaterniond;
-    using AngleAxis =  Eigen::AngleAxisd;
-    using Affine3 =  Eigen::Affine3d;
-    using MatrixX =  Eigen::MatrixXd;
-#elif REAL_PRECISION == 3
-    using Real = long double; // 3 = extended
-    using Matrix3 =  Eigen::Matrix3l;
-    using Vector3 =  Eigen::Vector3l;
-    using Quaternion =  Eigen::Quaternionl;
-    using AngleAxis =  Eigen::AngleAxisl;
-    using Affine3 =  Eigen::Affine3l;
-    using MatrixX =  Eigen::MatrixXl;
-#else
-    using Real = double; // Default to double
-    using Matrix3 =  Eigen::Matrix3d;
-    using Vector3 =  Eigen::Vector3d;
-    using Quaternion =  Eigen::Quaterniond;
-    using AngleAxis =  Eigen::AngleAxisd;
-    using Affine3 =  Eigen::Affine3d;
-    using MatrixX =  Eigen::MatrixXd;
+#if !defined(INERTIALPOSELIB_PRECISION)
+#  define INERTIALPOSELIB_PRECISION 2
 #endif
 
+// Define real type based on precision setting
+#if INERTIALPOSELIB_PRECISION == 1
+    typedef float real;
+#elif INERTIALPOSELIB_PRECISION == 2
+    typedef double real;
+#else
+    typedef double real;
+#endif
 
+using Matrix3 = Eigen::Matrix<real, 3, 3>;
+using Vector3 = Eigen::Matrix<real, 3, 1>;
+using Quaternion = Eigen::Quaternion<real>;
+using AngleAxis = Eigen::AngleAxis<real>;
+using Affine3 = Eigen::Transform<real, 3, Eigen::Affine>;
+using MatrixX = Eigen::Matrix<real, Eigen::Dynamic, Eigen::Dynamic>;
+
+
+// Define state order
 #define S_X 0
 #define S_Y 1
 #define S_Z 2
@@ -94,7 +80,7 @@ namespace InertialPoseLib {
 
     // EKF state
     typedef struct {
-        Real timestamp{0};
+        real timestamp{0};
         Vector3 pos{Vector3::Zero()};           // global
         Quaternion rot{Quaternion::Identity()}; // global
         Vector3 vel{Vector3::Zero()};           // global
@@ -107,13 +93,13 @@ namespace InertialPoseLib {
     } EkfState;
 
     typedef struct {
-        Real timestamp{0};
+        real timestamp{0};
         Vector3 acc{Vector3::Zero()};
         Vector3 gyro{Vector3::Zero()};
     } ImuStruct;
 
     typedef struct {
-        Real timestamp{0};
+        real timestamp{0};
         Vector3 pos = Vector3::Zero();           // global
         Quaternion rot = Quaternion::Identity(); // global
         Matrix3 pos_cov = Matrix3::Identity();   // position covariance (3x3 matrix)

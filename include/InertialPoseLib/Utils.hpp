@@ -12,14 +12,14 @@ namespace InertialPoseLib {
      * @param dt_trans end time and start time difference
      * @return interpolated transformation matrix
      */
-    inline Affine3 InterpolateTfWithTime(const Affine3& affine_trans_between, Real dt_scan, Real dt_trans) {
+    inline Affine3 InterpolateTfWithTime(const Affine3& affine_trans_between, real dt_scan, real dt_trans) {
         // Check if dt_trans is zero to avoid division by zero
         if (dt_trans == 0.0) {
             return Affine3::Identity();
         }
 
         // Compute the interpolation ratio
-        Real ratio = dt_scan / dt_trans;
+        real ratio = dt_scan / dt_trans;
 
         // Interpolate translation part
         Vector3 translation = affine_trans_between.translation() * ratio;
@@ -41,8 +41,8 @@ namespace InertialPoseLib {
      * @param d_angle_deg input angle (degrees)
      * @return normalized angle (degrees)
      */
-    inline Real NormAngleDeg(Real d_angle_deg) {
-        Real d_angle_norm_deg = d_angle_deg;
+    inline real NormAngleDeg(real d_angle_deg) {
+        real d_angle_norm_deg = d_angle_deg;
 
         // Set the input angle into the 0~pi
         while (d_angle_norm_deg > 360.) d_angle_norm_deg -= 360.;
@@ -56,8 +56,8 @@ namespace InertialPoseLib {
      * @param d_angle_rad input angle (radians)
      * @return normalized angle (radians)
      */
-    inline Real NormAngleRad(Real d_angle_rad) {
-        Real d_angle_norm_rad = d_angle_rad;
+    inline real NormAngleRad(real d_angle_rad) {
+        real d_angle_norm_rad = d_angle_rad;
 
         // Set the input angle into the 0~pi
         while (d_angle_norm_rad > M_PI) d_angle_norm_rad -= M_PI * 2.;
@@ -72,8 +72,8 @@ namespace InertialPoseLib {
      * @param d_rel_deg relative angle (degrees)
      * @return angle difference (degrees)
      */
-    inline Real AngleDiffDeg(Real d_ref_deg, Real d_rel_deg) {
-        Real d_angle_diff_deg = d_rel_deg - d_ref_deg;
+    inline real AngleDiffDeg(real d_ref_deg, real d_rel_deg) {
+        real d_angle_diff_deg = d_rel_deg - d_ref_deg;
 
         // calculate angle difference
         while (d_angle_diff_deg > 180.) d_angle_diff_deg = d_angle_diff_deg - 360.;
@@ -88,8 +88,8 @@ namespace InertialPoseLib {
      * @param d_rel_rad relative angle (radians)
      * @return angle difference (radians)
      */
-    inline Real AngleDiffRad(Real d_ref_rad, Real d_rel_rad) {
-        Real d_angle_diff_rad = d_rel_rad - d_ref_rad;
+    inline real AngleDiffRad(real d_ref_rad, real d_rel_rad) {
+        real d_angle_diff_rad = d_rel_rad - d_ref_rad;
 
         // calculate angle difference
         while (d_angle_diff_rad > M_PI) d_angle_diff_rad = d_angle_diff_rad - 2. * M_PI;

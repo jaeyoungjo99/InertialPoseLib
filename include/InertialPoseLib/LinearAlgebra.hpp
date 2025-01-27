@@ -49,9 +49,9 @@ namespace InertialPoseLib {
      * @return so(3) 3D vector
      */
     inline Vector3 Log(const Matrix3& R) {
-        Real cos_theta = (R.trace() - 1.0) * 0.5;
-        cos_theta = std::min(Real(1.0), std::max(Real(-1.0), cos_theta));  // Clamping for numerical stability
-        Real theta = std::acos(cos_theta);
+        real cos_theta = (R.trace() - 1.0) * 0.5;
+        cos_theta = std::min(real(1.0), std::max(real(-1.0), cos_theta));  // Clamping for numerical stability
+        real theta = std::acos(cos_theta);
         
         if (std::abs(theta) < 1e-5) {
             return Vector3::Zero();
@@ -66,7 +66,7 @@ namespace InertialPoseLib {
      * @return SO(3) rotation matrix
      */
     inline Matrix3 Exp(const Vector3& omega) {
-        Real theta = omega.norm();
+        real theta = omega.norm();
         Matrix3 Eye3 = Matrix3::Identity();
         if (theta < 1e-5) {
             return Eye3;
@@ -82,7 +82,7 @@ namespace InertialPoseLib {
      * @param d_dt_sec time step
      * @return rotation matrix change
      */
-    inline Matrix3 ExpGyroToRotMatrix(const Vector3& gyro, Real d_dt_sec) {
+    inline Matrix3 ExpGyroToRotMatrix(const Vector3& gyro, real d_dt_sec) {
         Vector3 omega = gyro * d_dt_sec; // Angular velocity scaled by time step
         return Exp(omega); // Use the ExpMap function to get the rotation matrix
     }
@@ -94,7 +94,7 @@ namespace InertialPoseLib {
      * @param d_dt_sec time step
      * @return quaternion change
      */
-    inline Quaternion ExpGyroToQuat(const Vector3& gyro, Real d_dt_sec) {
+    inline Quaternion ExpGyroToQuat(const Vector3& gyro, real d_dt_sec) {
         Vector3 omega = gyro * d_dt_sec; // Angular velocity vector scaled by time step
         Matrix3 rotation_matrix = Exp(omega); // Use the Exp function
         return Quaternion(rotation_matrix); // Convert rotation matrix to quaternion
@@ -121,10 +121,10 @@ namespace InertialPoseLib {
      * @param d_dt_sec time step
      * @return 3x3 Jacobian matrix
      */
-    inline Matrix3 PartialDerivativeRotWrtGyro(const Vector3& gyro, Real d_dt_sec) {
+    inline Matrix3 PartialDerivativeRotWrtGyro(const Vector3& gyro, real d_dt_sec) {
 
         Vector3 omega = gyro * d_dt_sec; // angular velocity vector scaled by time step
-        Real theta = omega.norm(); // total angular velocity
+        real theta = omega.norm(); // total angular velocity
 
         if (theta < 1e-5) {
             return Matrix3::Zero(); // Near-zero rotation, derivative is approximately zero

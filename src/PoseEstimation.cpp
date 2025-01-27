@@ -13,7 +13,7 @@
 
 namespace InertialPoseLib {
     void PoseEstimation::Reset(const PoseEstimationParams &params){
-                
+
         imu_gyro_std_ = params.imu_gyro_std;
         imu_acc_std_ = params.imu_acc_std;
 
@@ -38,7 +38,7 @@ namespace InertialPoseLib {
         S_.bg.setZero();
         S_.ba.setZero();
         S_.grav = Vector3(0.0, 0.0, imu_gravity_);
-
+        
         // Covariance initialization using configuration
         P_ = MatrixX::Identity(STATE_ORDER, STATE_ORDER) * INIT_STATE_COV;
 
@@ -78,15 +78,15 @@ namespace InertialPoseLib {
         }
 
         // Check for reasonable gyro and accel values (example thresholds)
-        const Real gyro_threshold = 1000.0; // Example threshold for gyro
-        const Real accel_threshold = 50.0;   // Example threshold for acceleration
+        const real gyro_threshold = 1000.0; // Example threshold for gyro
+        const real accel_threshold = 50.0;   // Example threshold for acceleration
 
         if (imu_input.gyro.norm() > gyro_threshold || imu_input.acc.norm() > accel_threshold) {
             // Invalid gyro or acceleration values
             return;
         }
 
-        Real cur_timestamp = imu_input.timestamp;
+        real cur_timestamp = imu_input.timestamp;
 
         if (reset_for_init_prediction_ == true) {
             prev_timestamp_ = cur_timestamp;
@@ -97,7 +97,7 @@ namespace InertialPoseLib {
         }
 
         // Calculate prediction dt
-        Real d_dt = cur_timestamp - prev_timestamp_;
+        real d_dt = cur_timestamp - prev_timestamp_;
 
         if (fabs(d_dt) < 1e-6) {
             return; // Not new data
@@ -131,9 +131,10 @@ namespace InertialPoseLib {
         S_.grav = ekf_state_prev.grav;
 
         // Process model matrix (Q) generation
-        Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER> Q = Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER>::Zero();
+        Eigen::Matrix<real, STATE_ORDER, STATE_ORDER> Q = Eigen::Matrix<real, STATE_ORDER, STATE_ORDER>::Zero();
 
         // Allocate std in Q matrix
+        // Position, Rotation, Velocity, Accel
         Q.block<3, 3>(S_X, S_X) = Matrix3::Identity() * std::pow(state_std_pos_m_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_ROLL, S_ROLL) =
                 Matrix3::Identity() * std::pow(state_std_rot_rad_, 2) * d_dt * d_dt;
@@ -141,6 +142,8 @@ namespace InertialPoseLib {
         Q.block<3, 3>(S_ROLL_RATE, S_ROLL_RATE) =
                 Matrix3::Identity() * std::pow(imu_gyro_std_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_AX, S_AX) = Matrix3::Identity() * std::pow(imu_acc_std_, 2) * d_dt * d_dt;
+
+        // IMU Bias, Gravity
         Q.block<3, 3>(S_B_ROLL_RATE, S_B_ROLL_RATE) =
                 Matrix3::Identity() * std::pow(imu_bias_gyro_std_, 2) * d_dt * d_dt;
         Q.block<3, 3>(S_B_AX, S_B_AX) =
@@ -148,7 +151,7 @@ namespace InertialPoseLib {
         Q.block<3, 3>(S_G_X, S_G_X) = Matrix3::Identity() * std::pow(imu_bias_acc_std_ * 10.0, 2) * d_dt * d_dt;
 
         // Covariance (P) propagation using CV model
-        Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER> F = Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER>::Identity();
+        Eigen::Matrix<real, STATE_ORDER, STATE_ORDER> F = Eigen::Matrix<real, STATE_ORDER, STATE_ORDER>::Identity();
 
         // Position partial differentiation
         F.block<3, 3>(S_X, S_VX) = Matrix3::Identity() * d_dt; // ∂pos / ∂vel
@@ -177,9 +180,6 @@ namespace InertialPoseLib {
 
         prev_timestamp_ = cur_timestamp;
 
-        // TODO:
-        // if (cfg_.b_use_zupt) ZuptImu(imu_input);
-
         ComplementaryKalmanFilter(imu_input);
 
         return;
@@ -191,43 +191,43 @@ namespace InertialPoseLib {
         // Main Algorithm
 
         // Observation matrix: H
-        Eigen::Matrix<Real, GNSS_MEAS_ORDER, STATE_ORDER> H;
+        Eigen::Matrix<real, GNSS_MEAS_ORDER, STATE_ORDER> H;
         H.setZero();
         H.block<3, 3>(0, 0) = Matrix3::Identity(); // Position
         H.block<3, 3>(3, 3) = Matrix3::Identity(); // Rotation
 
         // Measurement model: Z_state (state position and rotation)
-        Eigen::Matrix<Real, GNSS_MEAS_ORDER, 1> Z_state;
+        Eigen::Matrix<real, GNSS_MEAS_ORDER, 1> Z_state;
         Z_state.head<3>() = S_.pos; // Position
 
         // Measurement vector: Z (from gnss_input)
-        Eigen::Matrix<Real, GNSS_MEAS_ORDER, 1> Z;
+        Eigen::Matrix<real, GNSS_MEAS_ORDER, 1> Z;
         Z.head<3>() = gnss_input.pos;
 
         // Measurement covariance matrix: R
-        Eigen::Matrix<Real, GNSS_MEAS_ORDER, GNSS_MEAS_ORDER> R =
-                Eigen::Matrix<Real, GNSS_MEAS_ORDER, GNSS_MEAS_ORDER>::Zero();
+        Eigen::Matrix<real, GNSS_MEAS_ORDER, GNSS_MEAS_ORDER> R =
+                Eigen::Matrix<real, GNSS_MEAS_ORDER, GNSS_MEAS_ORDER>::Zero();
         R.block<3, 3>(0, 0) = gnss_input.pos_cov;
         R.block<3, 3>(3, 3) = gnss_input.rot_cov;
 
         // Observation covariance matrix: S (GNSS_MEAS_ORDER, GNSS_MEAS_ORDER)
-        Eigen::Matrix<Real, GNSS_MEAS_ORDER, GNSS_MEAS_ORDER> S = H * P_ * H.transpose() + R;
+        Eigen::Matrix<real, GNSS_MEAS_ORDER, GNSS_MEAS_ORDER> S = H * P_ * H.transpose() + R;
 
         // Kalman Gain: K (STATE_ORDER * GNSS_MEAS_ORDER)
-        Eigen::Matrix<Real, STATE_ORDER, GNSS_MEAS_ORDER> K = P_ * H.transpose() * S.inverse();
+        Eigen::Matrix<real, STATE_ORDER, GNSS_MEAS_ORDER> K = P_ * H.transpose() * S.inverse();
 
         // Residual: Y (for position and rotation in quaternion)
         Vector3 res_angle_euler = CalEulerResidualFromQuat(S_.rot, gnss_input.rot);
 
-        Eigen::Matrix<Real, GNSS_MEAS_ORDER, 1> Y;
+        Eigen::Matrix<real, GNSS_MEAS_ORDER, 1> Y;
         Y.head<3>() = Z.head<3>() - Z_state.head<3>(); // Position residual
         Y.tail<3>() = res_angle_euler;                 // Rotation residual as angle-axis vector
 
         if (is_3dof == true) {
-            Eigen::Matrix<Real, 3, STATE_ORDER> H3 = H.block<3, STATE_ORDER>(0, 0);
-            Eigen::Matrix<Real, 3, 3> S3 = H3 * P_ * H3.transpose() + R.block<3, 3>(0, 0);
-            Eigen::Matrix<Real, STATE_ORDER, 3> K3 = P_ * H3.transpose() * S3.inverse();
-            Eigen::Matrix<Real, 3, 1> Y3 = Y.head<3>();
+            Eigen::Matrix<real, 3, STATE_ORDER> H3 = H.block<3, STATE_ORDER>(0, 0);
+            Eigen::Matrix<real, 3, 3> S3 = H3 * P_ * H3.transpose() + R.block<3, 3>(0, 0);
+            Eigen::Matrix<real, STATE_ORDER, 3> K3 = P_ * H3.transpose() * S3.inverse();
+            Eigen::Matrix<real, 3, 1> Y3 = Y.head<3>();
 
             UpdateEkfState(K3, Y3, P_, H3, S_);
         }
@@ -261,68 +261,62 @@ namespace InertialPoseLib {
     */
     void PoseEstimation::ComplementaryKalmanFilter(const ImuStruct& imu_input) {
         // Detect dynamic state through acceleration magnitude check
-        const Eigen::Matrix<Real, 3, 1> vec_acc_meas = imu_input.acc - S_.ba; // Bias-corrected acceleration
+        const Eigen::Matrix<real, 3, 1> vec_meas_acc = imu_input.acc - S_.ba; // Bias-corrected acceleration
 
         // Compensate centrifugal force
-        // 1. Calculate speed in vehicle local frame
-        Eigen::Matrix<Real, 3, 1> vel_local = S_.rot.inverse() * S_.vel;
+        Matrix3 G_R_I = S_.rot.toRotationMatrix();
+        Eigen::Matrix<real, 3, 1> vec_grav_removed_acc = G_R_I * vec_meas_acc - S_.grav;
+        Eigen::Matrix<real, 3, 1> vec_grav_removed_meas_acc = vec_meas_acc - G_R_I.transpose() * S_.grav;
 
-        // 4. Pure gravity component compensated for centrifugal force
-        Eigen::Matrix<Real, 3, 1> compensated_acc = vec_acc_meas;
-
-        // Check the magnitude of the compensated acceleration
-        const Real d_acc_sensor_magnitude = vec_acc_meas.norm();
-        const Real d_gravity_magnitude = S_.grav.norm();
-        const Real d_acc_diff = d_acc_sensor_magnitude - d_gravity_magnitude;
+        std::cout << "vec_grav_removed_meas_acc: " << vec_grav_removed_meas_acc.transpose() << std::endl;
+        real acc_mag = vec_grav_removed_meas_acc.norm();
 
         // 1. Calculate measurement value (z) - use compensated acceleration for centrifugal force
-        Eigen::Matrix<Real, 3, 1> gravity_direction = compensated_acc.normalized();
-        Eigen::Matrix<Real, 2, 1> z; // roll, pitch measurement value
+        Eigen::Matrix<real, 3, 1> gravity_direction = vec_meas_acc.normalized();
+        Eigen::Matrix<real, 2, 1> z; // roll, pitch measurement value
         z << std::atan2(gravity_direction.y(), gravity_direction.z()), // roll
             -std::asin(gravity_direction.x());                         // pitch
 
         // 2. Extract roll, pitch of current state (h(x))
-        Eigen::Matrix<Real, 3, 1> current_rpy = RotToVec(S_.rot.toRotationMatrix());
-        Eigen::Matrix<Real, 2, 1> h_x; // roll, pitch of current state
-        h_x << current_rpy.x(),  // roll
-                current_rpy.y(); // pitch
+        Eigen::Matrix<real, 2, 1> h_x = RotToVec(S_.rot.toRotationMatrix()).head<2>();
 
         // 3. Calculate Innovation (residual Y)
-        Eigen::Matrix<Real, 2, 1> innovation = z - h_x;
+        Eigen::Matrix<real, 2, 1> innovation = z - h_x;
 
         // Normalize roll, pitch to the range [-π, π]
         innovation(0) = NormAngleRad(innovation(0));
         innovation(1) = NormAngleRad(innovation(1));
 
         // 4. Calculate Measurement Jacobian (H)
-        Eigen::Matrix<Real, 2, STATE_ORDER> H = Eigen::Matrix<Real, 2, STATE_ORDER>::Zero();
-        H(0, S_ROLL) = 1.0;  // ∂roll_meas/∂roll
+        Eigen::Matrix<real, 2, STATE_ORDER> H = Eigen::Matrix<real, 2, STATE_ORDER>::Zero();
+        H(0, S_ROLL) = 1.0 ;  // ∂roll_meas/∂roll
         H(1, S_PITCH) = 1.0; // ∂pitch_meas/∂pitch
 
         // 5. Set Measurement noise covariance (R)
-        Eigen::Matrix<Real, 2, 2> R = Eigen::Matrix<Real, 2, 2>::Zero(); 
+        Eigen::Matrix<real, 2, 2> R = Eigen::Matrix<real, 2, 2>::Zero(); 
 
-        // Final measurement noise covariance
-        R(0, 0) = 1.0;   // roll
-        R(1, 1) = 1.0; // pitch
+        // Final measurement noise covariance TODO: Adjust based on the magnitude of the compensated acceleration
+        R(0, 0) = M_PI * 50.0 * acc_mag;   // roll
+        R(1, 1) = M_PI * 50.0 * acc_mag; // pitch
+
 
         // 6. Kalman gain
-        Eigen::Matrix<Real, 2, 2> S = H * P_ * H.transpose() + R;                             // Innovation covariance
-        Eigen::Matrix<Real, STATE_ORDER, 2> K = P_ * H.transpose() * S.inverse(); // Kalman gain
+        Eigen::Matrix<real, 2, 2> S = H * P_ * H.transpose() + R;                             // Innovation covariance
+        Eigen::Matrix<real, STATE_ORDER, 2> K = P_ * H.transpose() * S.inverse(); // Kalman gain
 
         // 7. EKF State Update
         UpdateEkfState<2, 2>(K, innovation, P_, H, S_);
     }
 
     template <int MEAS_SIZE, int K_COLS>
-    void PoseEstimation::UpdateEkfState(const Eigen::Matrix<Real, STATE_ORDER, K_COLS>& K,
-                        const Eigen::Matrix<Real, MEAS_SIZE, 1>& Y,
-                        Eigen::Matrix<Real, STATE_ORDER, STATE_ORDER>& P,
-                        const Eigen::Matrix<Real, MEAS_SIZE, STATE_ORDER>& H,
+    void PoseEstimation::UpdateEkfState(const Eigen::Matrix<real, STATE_ORDER, K_COLS>& K,
+                        const Eigen::Matrix<real, MEAS_SIZE, 1>& Y,
+                        Eigen::Matrix<real, STATE_ORDER, STATE_ORDER>& P,
+                        const Eigen::Matrix<real, MEAS_SIZE, STATE_ORDER>& H,
                         EkfState& X                                             
     ) {
         // State update
-        Eigen::Matrix<Real, STATE_ORDER, 1> state_update = K * Y;
+        Eigen::Matrix<real, STATE_ORDER, 1> state_update = K * Y;
         X.pos += state_update.head<3>(); // Position update
         X.vel += state_update.block<3, 1>(S_VX, 0);
         X.gyro += state_update.block<3, 1>(S_ROLL_RATE, 0);
