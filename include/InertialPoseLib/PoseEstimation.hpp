@@ -41,7 +41,8 @@ namespace InertialPoseLib {
 
         ~PoseEstimation() {}
 
-        void Reset(const PoseEstimationParams &params);
+        void Reset(const PoseEstimationParams &params,
+            Vector3 init_pos = Vector3::Zero(), Quaternion init_rot = Quaternion::Identity());
 
     public:
         void PredictImu(const ImuStruct& imu_input);

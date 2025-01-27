@@ -12,7 +12,8 @@
 #include <typeinfo> // Include typeinfo for type identification
 
 namespace InertialPoseLib {
-    void PoseEstimation::Reset(const PoseEstimationParams &params){
+    void PoseEstimation::Reset(const PoseEstimationParams &params,
+        Vector3 init_pos, Quaternion init_rot){
 
         imu_gyro_std_ = params.imu_gyro_std;
         imu_acc_std_ = params.imu_acc_std;
@@ -30,8 +31,8 @@ namespace InertialPoseLib {
         estimate_gravity_ = params.estimate_gravity;
 
         // State initialization using configuration
-        S_.pos.setZero();
-        S_.rot.setIdentity();
+        S_.pos = init_pos;
+        S_.rot = init_rot;
         S_.vel.setZero();
         S_.gyro.setZero();
         S_.acc.setZero();
@@ -87,6 +88,8 @@ namespace InertialPoseLib {
         }
 
         real cur_timestamp = imu_input.timestamp;
+        S_.timestamp = cur_timestamp;
+        
 
         if (reset_for_init_prediction_ == true) {
             prev_timestamp_ = cur_timestamp;
@@ -179,8 +182,9 @@ namespace InertialPoseLib {
         P_ = F * P_ * F.transpose() + Q;
 
         prev_timestamp_ = cur_timestamp;
+        
 
-        ComplementaryKalmanFilter(imu_input);
+        // ComplementaryKalmanFilter(imu_input);
 
         return;
     }
@@ -268,7 +272,6 @@ namespace InertialPoseLib {
         Eigen::Matrix<real, 3, 1> vec_grav_removed_acc = G_R_I * vec_meas_acc - S_.grav;
         Eigen::Matrix<real, 3, 1> vec_grav_removed_meas_acc = vec_meas_acc - G_R_I.transpose() * S_.grav;
 
-        std::cout << "vec_grav_removed_meas_acc: " << vec_grav_removed_meas_acc.transpose() << std::endl;
         real acc_mag = vec_grav_removed_meas_acc.norm();
 
         // 1. Calculate measurement value (z) - use compensated acceleration for centrifugal force
