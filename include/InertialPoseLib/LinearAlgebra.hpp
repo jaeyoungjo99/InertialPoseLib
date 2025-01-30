@@ -79,11 +79,11 @@ namespace InertialPoseLib {
     /**
      * Calculate rotation matrix change using angular velocity and time
      * @param gyro angular velocity vector
-     * @param d_dt_sec time step
+     * @param dt_sec time step
      * @return rotation matrix change
      */
-    inline Matrix3 ExpGyroToRotMatrix(const Vector3& gyro, real d_dt_sec) {
-        Vector3 omega = gyro * d_dt_sec; // Angular velocity scaled by time step
+    inline Matrix3 ExpGyroToRotMatrix(const Vector3& gyro, real dt_sec) {
+        Vector3 omega = gyro * dt_sec; // Angular velocity scaled by time step
         return Exp(omega); // Use the ExpMap function to get the rotation matrix
     }
 
@@ -91,11 +91,11 @@ namespace InertialPoseLib {
     /**
      * Calculate quaternion change using angular velocity and time
      * @param gyro angular velocity vector
-     * @param d_dt_sec time step
+     * @param dt_sec time step
      * @return quaternion change
      */
-    inline Quaternion ExpGyroToQuat(const Vector3& gyro, real d_dt_sec) {
-        Vector3 omega = gyro * d_dt_sec; // Angular velocity vector scaled by time step
+    inline Quaternion ExpGyroToQuat(const Vector3& gyro, real dt_sec) {
+        Vector3 omega = gyro * dt_sec; // Angular velocity vector scaled by time step
         Matrix3 rotation_matrix = Exp(omega); // Use the Exp function
         return Quaternion(rotation_matrix); // Convert rotation matrix to quaternion
     }
@@ -118,12 +118,12 @@ namespace InertialPoseLib {
     /**
      * Calculate partial derivative of rotation with respect to angular velocity
      * @param gyro angular velocity vector
-     * @param d_dt_sec time step
+     * @param dt_sec time step
      * @return 3x3 Jacobian matrix
      */
-    inline Matrix3 PartialDerivativeRotWrtGyro(const Vector3& gyro, real d_dt_sec) {
+    inline Matrix3 PartialDerivativeRotWrtGyro(const Vector3& gyro, real dt_sec) {
 
-        Vector3 omega = gyro * d_dt_sec; // angular velocity vector scaled by time step
+        Vector3 omega = gyro * dt_sec; // angular velocity vector scaled by time step
         real theta = omega.norm(); // total angular velocity
 
         if (theta < 1e-5) {
@@ -132,7 +132,7 @@ namespace InertialPoseLib {
 
         Vector3 axis = omega / theta; // rotation axis = angular velocity vector / total angular velocity
         Matrix3 K = SkewSymmetricMatrix(axis); // skew-symmetric matrix: rotation vector representation in SO(3)
-        Matrix3 partial_derivative = d_dt_sec * 
+        Matrix3 partial_derivative = dt_sec * 
                                             (Matrix3::Identity() 
                                             + (1 - std::cos(theta)) / (theta * theta) * K 
                                             + (theta - std::sin(theta)) / (theta * theta * theta) * K * K);

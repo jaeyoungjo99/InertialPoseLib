@@ -43,20 +43,23 @@ namespace InertialPoseLib {
         // Covariance initialization using configuration
         P_ = MatrixX::Identity(STATE_ORDER, STATE_ORDER) * INIT_STATE_COV;
 
-        P_(S_ROLL_RATE, S_ROLL_RATE) = imu_gyro_std_;
-        P_(S_PITCH_RATE, S_PITCH_RATE) = imu_gyro_std_;
-        P_(S_YAW_RATE, S_YAW_RATE) = imu_gyro_std_;
+        P_(S_ROLL_RATE, S_ROLL_RATE) = imu_gyro_std_ * imu_gyro_std_;
+        P_(S_PITCH_RATE, S_PITCH_RATE) = imu_gyro_std_ * imu_gyro_std_;
+        P_(S_YAW_RATE, S_YAW_RATE) = imu_gyro_std_ * imu_gyro_std_;
+        P_(S_AX, S_AX) = 1.0;
+        P_(S_AY, S_AY) = 1.0;
+        P_(S_AZ, S_AZ) = 1.0;
 
-        P_(S_B_ROLL_RATE, S_B_ROLL_RATE) = imu_bias_gyro_std_;
-        P_(S_B_PITCH_RATE, S_B_PITCH_RATE) = imu_bias_gyro_std_;
-        P_(S_B_YAW_RATE, S_B_YAW_RATE) = imu_bias_gyro_std_;
-        P_(S_B_AX, S_B_AX) = imu_bias_acc_std_;
-        P_(S_B_AY, S_B_AY) = imu_bias_acc_std_;
-        P_(S_B_AZ, S_B_AZ) = imu_bias_acc_std_;
+        P_(S_B_ROLL_RATE, S_B_ROLL_RATE) = imu_bias_gyro_std_ * imu_bias_gyro_std_;
+        P_(S_B_PITCH_RATE, S_B_PITCH_RATE) = imu_bias_gyro_std_ * imu_bias_gyro_std_;
+        P_(S_B_YAW_RATE, S_B_YAW_RATE) = imu_bias_gyro_std_ * imu_bias_gyro_std_;
+        P_(S_B_AX, S_B_AX) = imu_bias_acc_std_ * imu_bias_acc_std_;
+        P_(S_B_AY, S_B_AY) = imu_bias_acc_std_ * imu_bias_acc_std_;
+        P_(S_B_AZ, S_B_AZ) = imu_bias_acc_std_ * imu_bias_acc_std_;
 
-        P_(S_G_X, S_G_X) = imu_bias_acc_std_ * 10.0;
-        P_(S_G_Y, S_G_Y) = imu_bias_acc_std_ * 10.0;
-        P_(S_G_Z, S_G_Z) = imu_bias_acc_std_ * 10.0;
+        P_(S_G_X, S_G_X) = imu_bias_acc_std_ * imu_bias_acc_std_;
+        P_(S_G_Y, S_G_Y) = imu_bias_acc_std_ * imu_bias_acc_std_;
+        P_(S_G_Z, S_G_Z) = imu_bias_acc_std_ * imu_bias_acc_std_;
 
         prev_timestamp_ = 0.0;
         reset_for_init_prediction_ = true;
@@ -100,9 +103,9 @@ namespace InertialPoseLib {
         }
 
         // Calculate prediction dt
-        real d_dt = cur_timestamp - prev_timestamp_;
+        real dt = cur_timestamp - prev_timestamp_;
 
-        if (fabs(d_dt) < 1e-6) {
+        if (fabs(dt) < 1e-6) {
             return; // Not new data
         }
 
@@ -113,7 +116,7 @@ namespace InertialPoseLib {
 
         // Gyroscope reading corrected for bias
         Vector3 corrected_gyro = imu_input.gyro - ekf_state_prev.bg;
-        Quaternion delta_rot = ExpGyroToQuat(corrected_gyro, d_dt);
+        Quaternion delta_rot = ExpGyroToQuat(corrected_gyro, dt);
         S_.rot = (ekf_state_prev.rot * delta_rot).normalized();
 
         // Compensate IMU Bias and Gravity
@@ -121,8 +124,8 @@ namespace InertialPoseLib {
         Vector3 accel_global = G_R_I * corrected_accel - ekf_state_prev.grav;
 
         // Predict Pose, Velocity
-        S_.pos += ekf_state_prev.vel * d_dt + 0.5 * accel_global * d_dt * d_dt;
-        S_.vel += accel_global * d_dt;
+        S_.pos += ekf_state_prev.vel * dt + 0.5 * accel_global * dt * dt;
+        S_.vel += accel_global * dt;
 
         // Use prior state of gyro and acc
         S_.gyro = corrected_gyro;
@@ -138,44 +141,55 @@ namespace InertialPoseLib {
 
         // Allocate std in Q matrix
         // Position, Rotation, Velocity, Accel
-        Q.block<3, 3>(S_X, S_X) = Matrix3::Identity() * std::pow(state_std_pos_m_, 2) * d_dt * d_dt;
+        Q.block<3, 3>(S_X, S_X) = Matrix3::Identity() * std::pow(state_std_pos_m_, 2) * dt * dt;
         Q.block<3, 3>(S_ROLL, S_ROLL) =
-                Matrix3::Identity() * std::pow(state_std_rot_rad_, 2) * d_dt * d_dt;
-        Q.block<3, 3>(S_VX, S_VX) = Matrix3::Identity() * std::pow(state_std_vel_mps_, 2) * d_dt * d_dt;
+                Matrix3::Identity() * std::pow(state_std_rot_rad_, 2) * dt * dt;
+        Q.block<3, 3>(S_VX, S_VX) = Matrix3::Identity() * std::pow(state_std_vel_mps_, 2) * dt * dt;
         Q.block<3, 3>(S_ROLL_RATE, S_ROLL_RATE) =
-                Matrix3::Identity() * std::pow(imu_gyro_std_, 2) * d_dt * d_dt;
-        Q.block<3, 3>(S_AX, S_AX) = Matrix3::Identity() * std::pow(imu_acc_std_, 2) * d_dt * d_dt;
+                Matrix3::Identity() * std::pow(imu_gyro_std_, 2) * dt * dt;
+        // Q.block<3, 3>(S_AX, S_AX) = Matrix3::Identity() * std::pow(imu_acc_std_, 2) * dt * dt;
 
         // IMU Bias, Gravity
         Q.block<3, 3>(S_B_ROLL_RATE, S_B_ROLL_RATE) =
-                Matrix3::Identity() * std::pow(imu_bias_gyro_std_, 2) * d_dt * d_dt;
+                Matrix3::Identity() * std::pow(imu_bias_gyro_std_, 2) * dt * dt;
         Q.block<3, 3>(S_B_AX, S_B_AX) =
-                Matrix3::Identity() * std::pow(imu_bias_acc_std_, 2) * d_dt * d_dt;
-        Q.block<3, 3>(S_G_X, S_G_X) = Matrix3::Identity() * std::pow(imu_bias_acc_std_ * 10.0, 2) * d_dt * d_dt;
+                Matrix3::Identity() * std::pow(imu_bias_acc_std_, 2) * dt * dt;
+        Q.block<3, 3>(S_G_X, S_G_X) = Matrix3::Identity() * std::pow(imu_bias_acc_std_ * 10.0, 2) * dt * dt;
+
+
+        // auto diagonal = P_.diagonal().transpose();
+        // std::cout <<"\nPOS: "<< diagonal[0] << " " << diagonal[1] << " " << diagonal[2] << std::endl;
+        // std::cout <<"ROT: "<< diagonal[3] << " " << diagonal[4] << " " << diagonal[5] << std::endl;
+        // std::cout <<"VEL: "<< diagonal[6] << " " << diagonal[7] << " " << diagonal[8] << std::endl;
+        // std::cout <<"GYR: "<< diagonal[9] << " " << diagonal[10] << " " << diagonal[11] << std::endl;
+        // std::cout <<"ACC: "<< diagonal[12] << " " << diagonal[13] << " " << diagonal[14] << std::endl;
+        // std::cout <<"BGY: "<< diagonal[15] << " " << diagonal[16] << " " << diagonal[17] << std::endl;
+        // std::cout <<"BGA: "<< diagonal[18] << " " << diagonal[19] << " " << diagonal[20] << std::endl;
+        // std::cout <<"GRA: "<< diagonal[21] << " " << diagonal[22] << " " << diagonal[23] << std::endl;
 
         // Covariance (P) propagation using CV model
         Eigen::Matrix<real, STATE_ORDER, STATE_ORDER> F = Eigen::Matrix<real, STATE_ORDER, STATE_ORDER>::Identity();
 
         // Position partial differentiation
-        F.block<3, 3>(S_X, S_VX) = Matrix3::Identity() * d_dt; // ∂pos / ∂vel
+        F.block<3, 3>(S_X, S_VX) = Matrix3::Identity() * dt; // ∂pos / ∂vel
 
         if(estimate_imu_bias_){
-            F.block<3, 3>(S_X, S_B_AX) = -0.5 * G_R_I * d_dt * d_dt; // ∂pos / ∂ba (including global transform)
+            F.block<3, 3>(S_X, S_B_AX) = -0.5 * G_R_I * dt * dt; // ∂pos / ∂ba (including global transform)
             
             // Rotation partial differentiation
-            F.block<3, 3>(S_ROLL, S_B_ROLL_RATE) = -PartialDerivativeRotWrtGyro(corrected_gyro, d_dt); // d rot / d bg
+            F.block<3, 3>(S_ROLL, S_B_ROLL_RATE) = -PartialDerivativeRotWrtGyro(corrected_gyro, dt); // d rot / d bg
             F.block<3, 3>(S_ROLL_RATE, S_B_ROLL_RATE) = -Matrix3::Identity(); // ∂gyro / ∂bg
 
             // Velocity partial differentiation
-            F.block<3, 3>(S_VX, S_B_AX) = -G_R_I * d_dt; // ∂vel / ∂ba (including global transform)
-            F.block<3, 3>(S_AX, S_B_AX) = -G_R_I; // ∂acc / ∂ba (including global transform)
+            F.block<3, 3>(S_VX, S_B_AX) = -G_R_I * dt; // ∂vel / ∂ba (including global transform)
+            // F.block<3, 3>(S_AX, S_B_AX) = -G_R_I; // ∂acc / ∂ba (including global transform)
         }
 
         if (estimate_gravity_) {
             // Only Z axis
-            F(S_Z, S_G_Z) = -0.5 * d_dt * d_dt; // ∂z / ∂gz
-            F(S_VZ, S_G_Z) = -d_dt;             // ∂vz / ∂gz
-            F(S_AZ, S_G_Z) = -1.0;              // ∂az / ∂gz
+            F(S_Z, S_G_Z) = -0.5 * dt * dt; // ∂z / ∂gz
+            F(S_VZ, S_G_Z) = -dt;           // ∂vz / ∂gz
+            // F(S_AZ, S_G_Z) = -1.0;          // ∂az / ∂gz
         }
 
         // Covariance matrix
@@ -184,7 +198,7 @@ namespace InertialPoseLib {
         prev_timestamp_ = cur_timestamp;
         
 
-        // ComplementaryKalmanFilter(imu_input);
+        ComplementaryKalmanFilter(imu_input);
 
         return;
     }
@@ -272,7 +286,7 @@ namespace InertialPoseLib {
         Eigen::Matrix<real, 3, 1> vec_grav_removed_acc = G_R_I * vec_meas_acc - S_.grav;
         Eigen::Matrix<real, 3, 1> vec_grav_removed_meas_acc = vec_meas_acc - G_R_I.transpose() * S_.grav;
 
-        real acc_mag = vec_grav_removed_meas_acc.norm();
+        real acc_mag = vec_grav_removed_meas_acc.norm() + 1.0;
 
         // 1. Calculate measurement value (z) - use compensated acceleration for centrifugal force
         Eigen::Matrix<real, 3, 1> gravity_direction = vec_meas_acc.normalized();
@@ -299,8 +313,8 @@ namespace InertialPoseLib {
         Eigen::Matrix<real, 2, 2> R = Eigen::Matrix<real, 2, 2>::Zero(); 
 
         // Final measurement noise covariance TODO: Adjust based on the magnitude of the compensated acceleration
-        R(0, 0) = M_PI * 50.0 * acc_mag;   // roll
-        R(1, 1) = M_PI * 50.0 * acc_mag; // pitch
+        R(0, 0) = M_PI * 1000.0 * acc_mag;   // roll
+        R(1, 1) = M_PI * 1000.0 * acc_mag; // pitch
 
 
         // 6. Kalman gain
